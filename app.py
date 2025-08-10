@@ -46,15 +46,13 @@ fig.add_trace(go.Scatter(
 fig.add_trace(go.Scatter(x=x_vals, y=y_pine, mode='lines', name='4x+6y ≤ Pine'))
 fig.add_trace(go.Scatter(x=x_vals, y=y_varn, mode='lines', name='4x + y ≤ 200'))
 
-# Draggable point
+# Draggable point (simulated by input, not actually draggable)
 fig.add_trace(go.Scatter(
     x=[x_init],
     y=[y_init],
     mode='markers',
     marker=dict(size=15, color='red'),
     name='Decision Variable (x,y)',
-    dragmode='xy',
-    uid='drag_point'
 ))
 
 fig.update_layout(
