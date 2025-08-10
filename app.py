@@ -7,15 +7,14 @@ def is_feasible(x, y, min_x, min_y):
         return False
     if y < min_y:
         return False
-    if 4*x + 4*y > 400:
+    if 4*x + 4*y > 400:  # Pine
         return False
-    if 3*x + 5*y > 600:
-        return False
-    if 4*x + y > 200:
+    # Laminate constraint removed
+    if 4*x + y > 200:    # Varnish
         return False
     return True
 
-st.title("LP Feasibility and Profit Calculator with Min x and y Sliders")
+st.title("LP Feasibility and Profit Calculator (No Laminate Constraint)")
 
 # Sliders for min x and y
 min_x = st.slider("Minimum units of Product X (x) allowed:", 0, 100, 20)
@@ -35,31 +34,30 @@ if st.button("Check Feasibility and Calculate Profit"):
         st.error(f"The point (x={x}, y={y}) is NOT feasible.")
         st.info(f"Profit if feasible: {profit:.2f}")
 
-# Plotting feasible region considering min_x and min_y
+# Plotting feasible region considering min_x and min_y (no laminate constraint)
 x_vals = np.linspace(0, 150, 400)
 
 y1 = (400 - 4*x_vals)/4    # Pine
-y2 = (600 - 3*x_vals)/5    # Laminate
+# Laminate constraint removed
 y3 = 200 - 4*x_vals        # Varnish
 
-# Upper boundary for y
-y_upper = np.minimum(np.minimum(y1, y2), y3)
+# Upper boundary for y is min of Pine and Varnish
+y_upper = np.minimum(y1, y3)
 y_upper = np.maximum(y_upper, 0)
 
 fig, ax = plt.subplots(figsize=(8,6))
 
 # Mask for x >= min_x
 mask_x = x_vals >= min_x
-# For each x in mask_x, y should also be >= min_y, so y_lower = min_y
+# y_lower = min_y
 y_lower = min_y
 
-# Fill feasible region where x >= min_x and y >= min_y and y <= y_upper
+# Fill feasible region where x >= min_x and y between y_lower and y_upper
 ax.fill_between(x_vals[mask_x], y_lower, y_upper[mask_x], 
                 where=(y_upper[mask_x] >= y_lower), color='lightgreen', alpha=0.5, label='Feasible region')
 
 # Plot constraints lines
 ax.plot(x_vals, y1, label='4x + 4y ≤ 400 (Pine)')
-ax.plot(x_vals, y2, label='3x + 5y ≤ 600 (Laminate)')
 ax.plot(x_vals, y3, label='4x + y ≤ 200 (Varnish)')
 
 # Plot vertical and horizontal lines for min_x and min_y
@@ -73,7 +71,7 @@ ax.set_xlim(0, 150)
 ax.set_ylim(0, 150)
 ax.set_xlabel('Units of Product X (x)')
 ax.set_ylabel('Units of Product Y (y)')
-ax.set_title('Feasible Region and Your Point with Min x and y Constraints')
+ax.set_title('Feasible Region and Your Point (No Laminate Constraint)')
 ax.legend()
 ax.grid(True)
 
