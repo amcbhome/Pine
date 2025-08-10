@@ -34,12 +34,3 @@ y_profit = (profit - 40*x_vals)/30
 valid = (y_profit >= 0) & (y_profit <= 150)
 ax.plot(x_vals[valid], y_profit[valid], 'r--', label=f'Isoprofit line: P = {profit}')
 
-ax.set_xlim(0, 150)
-ax.set_ylim(0, 150)
-ax.set_xlabel('Units of Product X (x)')
-ax.set_ylabel('Units of Product Y (y)')
-ax.set_title('Feasible Region and Isoprofit Line')
-ax.legend()
-ax.grid(True)
-
-st.pyplot(fig)
