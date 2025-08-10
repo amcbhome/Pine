@@ -6,15 +6,15 @@ from scipy.optimize import linprog
 st.title("Optimal Production and Profit with Variable Pine Availability")
 
 # Slider for Pine availability
-pine_avail = st.slider("Pine Availability (max 4x + 4y):", min_value=100, max_value=600, step=10, value=400)
+pine_avail = st.slider("Pine Availability (max 6x + 4y):", min_value=100, max_value=800, step=10, value=400)
 
 # Coefficients for objective function (negative for linprog minimization)
 c = [-40, -30]  # maximize 40x + 30y -> minimize -40x -30y
 
 # Inequality constraint matrix and RHS vector
 A = [
-    [4, 4],    # 4x + 4y ≤ pine_avail
-    [4, 1],    # 4x + y ≤ 200
+    [6, 4],    # 6x + 4y ≤ pine_avail
+    [4, 1],    # 4x + y ≤ 200 (Varnish)
 ]
 
 b = [pine_avail, 200]
@@ -37,9 +37,9 @@ else:
 
 # Plot feasible region and optimal solution
 x_vals = np.linspace(0, 150, 400)
-y1 = (pine_avail - 4*x_vals)/4
-y3 = 200 - 4*x_vals
-y_upper = np.minimum(y1, y3)
+y1 = (pine_avail - 6*x_vals)/4
+y2 = 200 - 4*x_vals
+y_upper = np.minimum(y1, y2)
 y_upper = np.maximum(y_upper, 0)
 
 fig, ax = plt.subplots(figsize=(8,6))
@@ -48,8 +48,8 @@ fig, ax = plt.subplots(figsize=(8,6))
 ax.fill_between(x_vals, 0, y_upper, color='lightgreen', alpha=0.5, label='Feasible region')
 
 # Constraint lines
-ax.plot(x_vals, y1, label=f'4x + 4y ≤ {pine_avail} (Pine)')
-ax.plot(x_vals, y3, label='4x + y ≤ 200 (Varnish)')
+ax.plot(x_vals, y1, label=f'6x + 4y ≤ {pine_avail} (Pine)')
+ax.plot(x_vals, y2, label='4x + y ≤ 200 (Varnish)')
 
 if res.success:
     # Plot isoprofit line at maximum profit: y = (max_profit - 40x)/30
