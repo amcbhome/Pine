@@ -1,130 +1,91 @@
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+
+st.title("Draggable Point in Feasible Region")
+
+# Constraints
+pine_avail = 400  # fixed for this example
+varnish_limit = 200
+
+# Feasible region boundaries
+x_vals = np.linspace(0, 100, 200)
+y_pine = (pine_avail - 4*x_vals) / 6
+y_varn = varnish_limit - 4*x_vals
+y_upper = np.minimum(y_pine, y_varn)
+y_upper = np.clip(y_upper, 0, np.max(y_upper))
+
+# Create polygon points for feasible region
+feasible_x = np.concatenate([x_vals, x_vals[::-1]])
+feasible_y = np.concatenate([np.zeros_like(x_vals), y_upper[::-1]])
+
+# Initial point (start at optimum from LP)
 from scipy.optimize import linprog
-
-st.set_page_config(layout="wide")
-st.title("Optimal Production with Pine = 4x + 6y and Sweep of Pine Availability")
-
-# -----------------------
-# Controls
-# -----------------------
-pine_avail = st.slider("Pine Availability (max 4x + 6y):", min_value=100, max_value=800, step=10, value=400)
-
-# -----------------------
-# Solve current LP
-# Max  P = 40x + 30y  -> minimize -40x -30y
-# Constraints:
-#   4x + 6y <= pine_avail
-#   4x +  y <= 200
-#   x >=0, y >=0
-# -----------------------
 c = [-40, -30]
-A = [
-    [4, 6],   # Pine: 4x + 6y ≤ pine_avail
-    [4, 1],   # Varnish: 4x + y ≤ 200
-]
-b = [pine_avail, 200]
-bounds = [(0, None), (0, None)]
-
+A = [[4,6],[4,1]]
+b = [pine_avail, varnish_limit]
+bounds = [(0,None),(0,None)]
 res = linprog(c, A_ub=A, b_ub=b, bounds=bounds, method='highs')
+x_init, y_init = res.x if res.success else (10,10)
 
-col1, col2 = st.columns((1, 1))
+# Plotly figure
+fig = go.Figure()
 
-with col1:
-    st.header("Current optimum")
-    if res.success:
-        x_opt, y_opt = res.x
-        x_opt = int(round(x_opt))
-        y_opt = int(round(y_opt))
-        max_profit = int(round(40*x_opt + 30*y_opt))
-        st.success(f"Optimal production: x = {x_opt}, y = {y_opt}")
-        st.info(f"Maximum profit: £{max_profit}")
-    else:
-        st.error("No feasible solution for current pine availability.")
-        x_opt = y_opt = max_profit = None
+# Feasible region polygon
+fig.add_trace(go.Scatter(
+    x=feasible_x,
+    y=feasible_y,
+    fill="toself",
+    fillcolor="rgba(0,200,200,0.2)",
+    line=dict(color="royalblue"),
+    name="Feasible Region",
+    hoverinfo='skip'
+))
 
-    # Plot feasible region + optimal point
-    x_vals = np.linspace(0, 200, 400)
-    y_pine = (pine_avail - 4*x_vals) / 6
-    y_varn = 200 - 4*x_vals
-    y_upper = np.minimum(y_pine, y_varn)
-    y_upper = np.maximum(y_upper, 0)
+# Constraint lines
+fig.add_trace(go.Scatter(x=x_vals, y=y_pine, mode='lines', name='4x+6y ≤ Pine'))
+fig.add_trace(go.Scatter(x=x_vals, y=y_varn, mode='lines', name='4x + y ≤ 200'))
 
-    fig1, ax1 = plt.subplots(figsize=(6,5))
-    mask = y_upper > 0
-    ax1.fill_between(x_vals[mask], 0, y_upper[mask], alpha=0.5, label='Feasible region')
-    ax1.plot(x_vals, y_pine, label=f'4x + 6y = {pine_avail} (Pine)')
-    ax1.plot(x_vals, y_varn, label='4x + y = 200 (Varnish)')
+# Draggable point
+fig.add_trace(go.Scatter(
+    x=[x_init],
+    y=[y_init],
+    mode='markers',
+    marker=dict(size=15, color='red'),
+    name='Decision Variable (x,y)',
+    dragmode='xy',
+    uid='drag_point'
+))
 
-    if res.success:
-        y_profit = (max_profit - 40*x_vals) / 30
-        valid = (y_profit >= 0) & (y_profit <= max(y_upper)*1.1)
-        ax1.plot(x_vals[valid], y_profit[valid], linestyle='--', label=f'Isoprofit (P=£{max_profit})')
-        ax1.plot(x_opt, y_opt, marker='o', markersize=8, label=f'Optimum ({x_opt}, {y_opt})')
-        ax1.annotate(f"P=£{max_profit}", xy=(x_opt, y_opt), xytext=(x_opt+3, y_opt+3),
-                     arrowprops=dict(arrowstyle="->", lw=0.8))
-    ax1.set_xlim(0, 100)
-    ax1.set_ylim(0, 100)
-    ax1.set_xlabel('x (units of Product X)')
-    ax1.set_ylabel('y (units of Product Y)')
-    ax1.set_title('Feasible Region and Optimal Point')
-    ax1.legend()
-    ax1.grid(True)
-    st.pyplot(fig1)
-
-with col2:
-    st.header("Sweep: optimum vs Pine availability")
-    pine_range = np.arange(100, 801, 10)
-    x_opts = []
-    y_opts = []
-    profits = []
-
-    for p in pine_range:
-        b_sweep = [p, 200]
-        r = linprog(c, A_ub=A, b_ub=b_sweep, bounds=bounds, method='highs')
-        if r.success:
-            x_s, y_s = r.x
-            x_opts.append(int(round(x_s)))
-            y_opts.append(int(round(y_s)))
-            profits.append(int(round(40*x_s + 30*y_s)))
-        else:
-            x_opts.append(np.nan)
-            y_opts.append(np.nan)
-            profits.append(np.nan)
-
-    # Plot 1: x_opt vs pine
-    fig2, ax2 = plt.subplots(figsize=(6,3))
-    ax2.plot(pine_range, x_opts)
-    ax2.set_xlabel('Pine availability')
-    ax2.set_ylabel('Optimal x')
-    ax2.set_title('Optimal x vs Pine availability')
-    ax2.grid(True)
-    st.pyplot(fig2)
-
-    # Plot 2: y_opt vs pine
-    fig3, ax3 = plt.subplots(figsize=(6,3))
-    ax3.plot(pine_range, y_opts)
-    ax3.set_xlabel('Pine availability')
-    ax3.set_ylabel('Optimal y')
-    ax3.set_title('Optimal y vs Pine availability')
-    ax3.grid(True)
-    st.pyplot(fig3)
-
-    # Plot 3: profit vs pine
-    fig4, ax4 = plt.subplots(figsize=(6,3))
-    ax4.plot(pine_range, profits)
-    ax4.set_xlabel('Pine availability')
-    ax4.set_ylabel('Max profit (£)')
-    ax4.set_title('Maximum profit vs Pine availability')
-    ax4.grid(True)
-    st.pyplot(fig4)
-
-st.markdown(
-    """
-    **Notes**
-    - Objective: maximize P = 40x + 30y  
-    - Constraints: 4x + 6y ≤ Pine_avail, 4x + y ≤ 200, x,y ≥ 0  
-    - Sweep runs automatically from 100 to 800 pine availability in steps of 10.
-    """
+fig.update_layout(
+    dragmode='closest',
+    xaxis=dict(range=[0, max(x_vals)], title='x (units Product X)'),
+    yaxis=dict(range=[0, max(y_upper)*1.1], title='y (units Product Y)'),
+    height=600,
+    title="Drag the red point inside the feasible region"
 )
+
+dragged_point = st.plotly_chart(fig, use_container_width=True)
+
+# Streamlit can't capture drag events directly, but we can use plotly_events (external) or a workaround:
+st.markdown("""
+**Instructions:**
+
+- Drag the **red point** on the plot (in a separate browser window/tab that supports Plotly dragging)
+- Currently, Streamlit cannot capture drag events live inside the app.
+- To get fully interactive drag & update, you need a Dash app or a web app using Plotly Dash or another JS framework.
+""")
+
+# Alternatively: Provide input boxes to enter x,y manually to simulate dragging
+
+x_input = st.number_input("Enter x:", value=float(x_init), min_value=0.0, max_value=float(max(x_vals)))
+y_input = st.number_input("Enter y:", value=float(y_init), min_value=0.0, max_value=float(max(y_upper)*1.1))
+
+# Check constraints
+pine_val = 4*x_input + 6*y_input
+varn_val = 4*x_input + y_input
+profit = 40*x_input + 30*y_input
+
+st.write(f"Profit = £{profit:.0f}")
+st.write(f"Pine constraint (4x+6y ≤ {pine_avail}): {pine_val:.0f} {'✔️' if pine_val <= pine_avail else '❌'}")
+st.write(f"Varnish constraint (4x+y ≤ {varnish_limit}): {varn_val:.0f} {'✔️' if varn_val <= varnish_limit else '❌'}")
